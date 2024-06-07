@@ -6,4 +6,4 @@ Sentez-vous libre de proposer des fonctionnalités et d'ajouter le bot à votre 
 Je fais ce projet en parallèle avec mes cours, donc ne vous étonnez pas si je ne suis pas très actif.
 
 Si vous avez des commentaires (constructifs) à faire, contactez-moi sur Discord.
-N'oubliez pas de mettre une étoile au projet, s'il vous plaît ! 🌟
+N'oubliez pas de mettre une étoile au projet si il vous plaît ! 🌟
