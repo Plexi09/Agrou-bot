@@ -1,4 +1,4 @@
-Agrou !
+# Agrou !
 
 Vous êtes français ? Vous aimez jouer aux Loups-Garous ? Ça tombe bien, moi aussi !
 Ce bot est inspiré du jeu "Les Loups-garous de Thiercelieux" créé par Philippe des Pallières et Hervé Marly en 2001.
