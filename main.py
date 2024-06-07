@@ -1,7 +1,5 @@
 from dotenv import load_dotenv
-from datetime import datetime
 import interactions
-import asyncio
 import logging
 import os
 from interactions import (
