@@ -15,8 +15,6 @@ from interactions import(
 # Configurer le logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-#timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-#logging.basicConfig(filename=(f'logs/discord_{timestamp}.log'), level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Chargement des variables d'environnement
 load_dotenv()
@@ -28,10 +26,9 @@ bot = interactions.Client(token=BOT_TOKEN)
 
 @listen()
 async def on_ready():
-    print("Ready")
-    #logger.info(f'Connecté en tant que {bot.name}')
+    print(f'Connecté en tant que {bot.user}')
 
-@slash_command(name="warewolf", description="Démarre une partie de Loups Garous")
+@slash_command(name="warewolf", description="Démarre une partie de Loups Garous avec les membres de votre salon vocal.")
 @slash_option(name="joueurs", description="Nombre de joueurs", opt_type=OptionType.INTEGER, required=True)
 @slash_option(name="loups", description="Proportion de loup en %", opt_type=OptionType. INTEGER, required=False)
 @slash_option(name="force", description="Force le démarrage de la partie", opt_type=OptionType.BOOLEAN, required=False)
