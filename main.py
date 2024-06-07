@@ -32,24 +32,9 @@ async def on_ready():
     #logger.info(f'Connecté en tant que {bot.name}')
 
 @slash_command(name="warewolf", description="Démarre une partie de Loups Garous")
-@slash_option(
-    name="joueurs",
-    description="Nombre de joueurs",
-    opt_type=OptionType.INTEGER,
-    required=True
-)
-@slash_option(
-    name="loups",
-    description="Proportion de loup en %",
-    opt_type=OptionType.INTEGER,
-    required=False
-)
-@slash_option(
-    name="force",
-    description="Force le démarrage de la partie",
-    opt_type=OptionType.BOOLEAN,
-    required=False
-)
+@slash_option(name="joueurs", description="Nombre de joueurs", opt_type=OptionType.INTEGER, required=True)
+@slash_option(name="loups", description="Proportion de loup en %", opt_type=OptionType. INTEGER, required=False)
+@slash_option(name="force", description="Force le démarrage de la partie", opt_type=OptionType.BOOLEAN, required=False)
 async def warewolf_function(ctx: SlashContext, joueurs: int, loups: int = 30, force: bool = False):
     if force:
         await ctx.send("🚨 Démarrage de la partie forcé ! Attendez-vous à des erreurs si les conditions de partie ne sont pas atteintes. 🚨")
