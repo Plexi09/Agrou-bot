@@ -9,7 +9,9 @@ from interactions import (
     OptionType,
     slash_option,
     Intents,
-    Client
+    Client,
+    ButtonStyle,
+    Button
 )
 
 # Configuration du logger
@@ -41,7 +43,7 @@ async def warewolf_function(ctx: SlashContext, joueurs: int, loups: int = 30, fo
     # Si la partie est forcée
     if force:
         logger.info("Démarrage de la partie forcé !")
-        await ctx.send("🚨 Démarrage de la partie forcé ! Attendez-vous à des erreurs si les conditions de partie ne sont pas atteintes. 🚨", ephemeral=True)
+        await ctx.send("🚨 Démarrage de la partie forcé ! Attendez-vous à des erreurs si les conditions de partie ne sont pas atteintes. 🚨")
         await start_game(ctx, joueurs, loups, force)
         return
 
@@ -57,11 +59,10 @@ async def warewolf_function(ctx: SlashContext, joueurs: int, loups: int = 30, fo
             await ctx.send(f"Le pourcentage de loup doit être inférieur ou égal à 100%! Vous avez inscrit {loups}% de loups.", ephemeral=True)
             return
         else:
-            await start_game(ctx, joueurs, loups, force)
+            await request_consent(ctx, joueurs)
 
-# Fonction pour démarrer la partie
-async def start_game(ctx: SlashContext, joueurs: int, loups: int, force: bool):
-    logger.info("Démarrage de la partie...")
+# Fonction pour demander le consentement aux joueurs
+async def request_consent(ctx: SlashContext, joueurs: int):
     voice_channel = ctx.author.voice.channel
     if not voice_channel:
         logger.warning("L'utilisateur n'est pas dans un salon vocal.")
@@ -74,8 +75,46 @@ async def start_game(ctx: SlashContext, joueurs: int, loups: int, force: bool):
         await ctx.send(f"Il n'y a pas assez de joueurs dans le salon vocal. {len(members)} présents, {joueurs} nécessaires.", ephemeral=True)
         return
 
+    consented_players = []
+
+    for player in members:
+        try:
+            logger.info(f"Demande de consentement à {player.display_name}")
+            consented = await request_consent_dm(player)
+            if consented:
+                consented_players.append(player)
+        except Exception as e:
+            logger.error(f"Impossible d'envoyer un DM à {player.display_name}: {e}")
+
+    if len(consented_players) >= joueurs:
+        await start_game(ctx, consented_players)
+    else:
+        logger.warning(f"Nombre de joueurs ayant consenti insuffisant. {len(consented_players)} consentis, {joueurs} nécessaires.")
+        await ctx.send(f"Nombre de joueurs ayant consenti insuffisant. {len(consented_players)} consentis, {joueurs} nécessaires.", ephemeral=True)
+
+# Fonction pour demander le consentement en message privé
+async def request_consent_dm(player):
+    consented = False
+    message = await player.send("Voulez-vous participer à une partie de Loups Garous ? Appuyez sur ✅ pour accepter ou ❌ pour refuser.")
+
+    def check(reaction, user):
+        return user == player and reaction.message.id == message.id and str(reaction.emoji) in ["✅", "❌"]
+
+    try:
+        reaction, _ = await bot.wait_for("reaction_add", timeout=60, check=check)
+        if str(reaction.emoji) == "✅":
+            consented = True
+    except Exception as e:
+        logger.error(f"Erreur lors de l'attente de la réaction de {player.display_name}: {e}")
+
+    return consented
+
+# Fonction pour démarrer la partie
+async def start_game(ctx: SlashContext, players):
+    logger.info("Démarrage de la partie...")
+    joueurs = len(players)
+    loups = 30  # Pour l'instant, fixons le pourcentage de loups à 30%
     nb_loups = round(joueurs * (loups / 100))
-    players = random.sample(members, joueurs)
     wolves = random.sample(players, nb_loups)
     
     for player in players:
