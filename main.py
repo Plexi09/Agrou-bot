@@ -9,9 +9,7 @@ from interactions import (
     OptionType,
     slash_option,
     Intents,
-    Client,
-    ButtonStyle,
-    Button
+    Client
 )
 
 # Configuration du logger
@@ -27,6 +25,10 @@ GUILD_ID = int(os.getenv('GUILD_ID'))
 intents = Intents.ALL
 bot = Client(token=BOT_TOKEN, intents=intents)
 
+# Constantes
+MIN_JOUEURS = 5
+POURCENTAGE_LOUPS = 30
+
 # Fonction appelée lorsque le bot est prêt
 @listen()
 async def on_ready():
@@ -34,93 +36,44 @@ async def on_ready():
 
 # Commande pour démarrer une partie de Loups Garous
 @slash_command(name="warewolf", description="Démarre une partie de Loups Garous avec les membres de votre salon vocal.")
-@slash_option(name="joueurs", description="Nombre de joueurs", opt_type=OptionType.INTEGER, required=True)
-@slash_option(name="loups", description="Proportion de loup en %", opt_type=OptionType.INTEGER, required=False)
 @slash_option(name="force", description="Force le démarrage de la partie", opt_type=OptionType.BOOLEAN, required=False)
-async def warewolf_function(ctx: SlashContext, joueurs: int, loups: int = 30, force: bool = False):
-    logger.info(f'Commande /warewolf appelée par {ctx.author.display_name} avec {joueurs} joueurs et {loups}% loups.')
-    
-    # Si la partie est forcée
+async def warewolf_function(ctx: SlashContext, force: bool = False):
+    logger.info(f'Commande /warewolf appelée par {ctx.author.display_name} avec force={force}.')
+
+    if ctx.author.voice is None:
+        await ctx.send("Vous devez être dans un salon vocal pour démarrer une partie.", ephemeral=True)
+        return
+
+    voice_channel = ctx.author.voice.channel
+    response = await bot.http.request("GET", f"/channels/{voice_channel.id}/users")  # Get the members in the voice channel
+    channel_members = await response.json()  # Parse the response as JSON
+    members = [bot.get_user(member["id"]) for member in channel_members]  # Get the User objects
+    joueurs = len(members)  # Count the number of members in the voice channel
+
     if force:
         logger.info("Démarrage de la partie forcé !")
         await ctx.send("🚨 Démarrage de la partie forcé ! Attendez-vous à des erreurs si les conditions de partie ne sont pas atteintes. 🚨")
-        await start_game(ctx, joueurs, loups, force)
+        await start_game(ctx, members)
         return
 
-    # Si la partie n'est pas forcée
-    if not force:
-        # Vérifie les conditions de démarrage
-        if joueurs < 5:
-            logger.warning(f"Le nombre de joueurs doit être supérieur ou égal à 5 ! Vous avez inscrit {joueurs} joueurs.")
-            await ctx.send(f"Le nombre de joueurs doit être supérieur ou égal à 5 ! Vous avez inscrit {joueurs} joueurs.", ephemeral=True)
-            return
-        elif loups > 100:
-            logger.warning(f"Le pourcentage de loup doit être inférieur ou égal à 100%! Vous avez inscrit {loups}% de loups.")
-            await ctx.send(f"Le pourcentage de loup doit être inférieur ou égal à 100%! Vous avez inscrit {loups}% de loups.", ephemeral=True)
-            return
-        else:
-            await request_consent(ctx, joueurs)
-
-# Fonction pour demander le consentement aux joueurs
-async def request_consent(ctx: SlashContext, joueurs: int):
-    voice_channel = ctx.author.voice.channel
-    if not voice_channel:
-        logger.warning("L'utilisateur n'est pas dans un salon vocal.")
-        await ctx.send("Vous devez être dans un salon vocal pour démarrer une partie.", ephemeral=True)
-        return
-    
-    members = voice_channel.members
-    if len(members) < joueurs:
-        logger.warning(f"Nombre insuffisant de joueurs dans le salon vocal. {len(members)} présents, {joueurs} nécessaires.")
-        await ctx.send(f"Il n'y a pas assez de joueurs dans le salon vocal. {len(members)} présents, {joueurs} nécessaires.", ephemeral=True)
+    if joueurs < MIN_JOUEURS:
+        logger.warning(f"Le nombre de joueurs doit être supérieur ou égal à {MIN_JOUEURS} ! {joueurs} présents.")
+        await ctx.send(f"Le nombre de joueurs doit être supérieur ou égal à {MIN_JOUEURS} ! {joueurs} présents.", ephemeral=True)
         return
 
-    consented_players = []
-
-    for player in members:
-        try:
-            logger.info(f"Demande de consentement à {player.display_name}")
-            consented = await request_consent_dm(player)
-            if consented:
-                consented_players.append(player)
-        except Exception as e:
-            logger.error(f"Impossible d'envoyer un DM à {player.display_name}: {e}")
-
-    if len(consented_players) >= joueurs:
-        await start_game(ctx, consented_players)
-    else:
-        logger.warning(f"Nombre de joueurs ayant consenti insuffisant. {len(consented_players)} consentis, {joueurs} nécessaires.")
-        await ctx.send(f"Nombre de joueurs ayant consenti insuffisant. {len(consented_players)} consentis, {joueurs} nécessaires.", ephemeral=True)
-
-# Fonction pour demander le consentement en message privé
-async def request_consent_dm(player):
-    consented = False
-    message = await player.send("Voulez-vous participer à une partie de Loups Garous ? Appuyez sur ✅ pour accepter ou ❌ pour refuser.")
-
-    def check(reaction, user):
-        return user == player and reaction.message.id == message.id and str(reaction.emoji) in ["✅", "❌"]
-
-    try:
-        reaction, _ = await bot.wait_for("reaction_add", timeout=60, check=check)
-        if str(reaction.emoji) == "✅":
-            consented = True
-    except Exception as e:
-        logger.error(f"Erreur lors de l'attente de la réaction de {player.display_name}: {e}")
-
-    return consented
+    await start_game(ctx, members)
 
 # Fonction pour démarrer la partie
 async def start_game(ctx: SlashContext, players):
     logger.info("Démarrage de la partie...")
     joueurs = len(players)
-    loups = 30  # Pour l'instant, fixons le pourcentage de loups à 30%
-    nb_loups = round(joueurs * (loups / 100))
+    nb_loups = round(joueurs * (POURCENTAGE_LOUPS / 100))
     wolves = random.sample(players, nb_loups)
     
     for player in players:
         role = "Loup" if player in wolves else "Villageois"
         logger.info(f"Rôle attribué à {player.display_name}: {role}")
-        await ctx.send(f"DM envoyé à {player.display_name} avec son rôle de {role}.")
+        await ctx.send(f"DM envoyé à {player.display_name} avec son rôle de {role}.", ephemeral=True)
         try:
             await player.send(f"Vous êtes un {role} pour cette partie de Loups Garous.")
         except Exception as e:
@@ -128,6 +81,30 @@ async def start_game(ctx: SlashContext, players):
             await ctx.send(f"Impossible d'envoyer un message privé à {player.display_name}. Assurez-vous que les messages privés sont activés.", ephemeral=True)
 
     await ctx.send(f"Démarrage de la partie avec {joueurs} joueurs et {nb_loups} loups.")
+    running = True
+    return running
+
+# Commande pour voter un joueur
+@slash_command(name="vote", description="Vote pour un joueur à éliminer.")
+@slash_option(name="joueur", description="Joueur à éliminer", opt_type=OptionType.USER, required=True)
+async def vote_function(ctx: SlashContext, joueur, running):
+    if running:
+        logger.info(f'Commande /vote appelée par {ctx.author.display_name} pour {joueur.display_name}.')
+
+        # À compléter : gestion des votes et élimination des joueurs
+    if not running:
+        await ctx.send("Aucune partie en cours.", ephemeral=True)
+
+# Commande pour afficher les joueurs vivants
+@slash_command(name="joueurs", description="Affiche la liste des joueurs vivants.")
+async def joueurs_function(ctx: SlashContext, running):
+    if running:
+        logger.info(f'Commande /joueurs appelée par {ctx.author.display_name}.')
+
+    # À compléter : affichage des joueurs vivants
+
+    if not running:
+        await ctx.send("Aucune partie en cours.", ephemeral=True)
 
 # Démarrage du bot
 bot.start()
