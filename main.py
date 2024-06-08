@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-import interactions
 import logging
 import os
 import random
