@@ -29,12 +29,11 @@ bot = Client(token=BOT_TOKEN, intents=intents)
 MIN_JOUEURS = 5
 POURCENTAGE_LOUPS = 30
 
-# Fonction appelée lorsque le bot est prêt
 @listen()
 async def on_ready():
     logger.info(f'Connecté en tant que {bot.user}')
 
-# Commande pour démarrer une partie de Loups Garous
+# Commande pour démarrer une partie
 @slash_command(name="warewolf", description="Démarre une partie de Loups Garous avec les membres de votre salon vocal.")
 @slash_option(name="force", description="Force le démarrage de la partie", opt_type=OptionType.BOOLEAN, required=False)
 async def warewolf_function(ctx: SlashContext, force: bool = False):
@@ -45,14 +44,11 @@ async def warewolf_function(ctx: SlashContext, force: bool = False):
         return
 
     voice_channel = ctx.author.voice.channel
-    response = await bot.http.request("GET", f"/channels/{voice_channel.id}/users")  # Get the members in the voice channel
-    channel_members = await response.json()  # Parse the response as JSON
-    members = [bot.get_user(member["id"]) for member in channel_members]  # Get the User objects
-    joueurs = len(members)  # Count the number of members in the voice channel
+    members = ctx.VoiceChannel.members
+    joueurs = len(members)
 
     if force:
-        logger.info("Démarrage de la partie forcé !")
-        await ctx.send("🚨 Démarrage de la partie forcé ! Attendez-vous à des erreurs si les conditions de partie ne sont pas atteintes. 🚨")
+        logger.info("Démarrage de la partie forcé")
         await start_game(ctx, members)
         return
 
@@ -65,7 +61,7 @@ async def warewolf_function(ctx: SlashContext, force: bool = False):
 
 # Fonction pour démarrer la partie
 async def start_game(ctx: SlashContext, players):
-    logger.info("Démarrage de la partie...")
+    logger.info("Démarrage de la partie")
     joueurs = len(players)
     nb_loups = round(joueurs * (POURCENTAGE_LOUPS / 100))
     wolves = random.sample(players, nb_loups)
@@ -81,18 +77,18 @@ async def start_game(ctx: SlashContext, players):
             await ctx.send(f"Impossible d'envoyer un message privé à {player.display_name}. Assurez-vous que les messages privés sont activés.", ephemeral=True)
 
     await ctx.send(f"Démarrage de la partie avec {joueurs} joueurs et {nb_loups} loups.")
-    running = True
-    return running
+    playing = True
+    return playing
 
-# Commande pour voter un joueur
+# Commande pour voter conter un joueur
 @slash_command(name="vote", description="Vote pour un joueur à éliminer.")
 @slash_option(name="joueur", description="Joueur à éliminer", opt_type=OptionType.USER, required=True)
-async def vote_function(ctx: SlashContext, joueur, running):
-    if running:
-        logger.info(f'Commande /vote appelée par {ctx.author.display_name} pour {joueur.display_name}.')
+async def vote_function(ctx: SlashContext, joueur, playing):
+    if playing:
+        logger.info(f'Commande /vote éxécuté par {ctx.author.display_name} pour {joueur.display_name}.')
 
-        # À compléter : gestion des votes et élimination des joueurs
-    if not running:
+        # À faire : gestion des votes
+    if not playing:
         await ctx.send("Aucune partie en cours.", ephemeral=True)
 
 # Commande pour afficher les joueurs vivants
@@ -101,7 +97,7 @@ async def joueurs_function(ctx: SlashContext, running):
     if running:
         logger.info(f'Commande /joueurs appelée par {ctx.author.display_name}.')
 
-    # À compléter : affichage des joueurs vivants
+    # À faire : affichage des joueurs vivants
 
     if not running:
         await ctx.send("Aucune partie en cours.", ephemeral=True)
